@@ -1,4 +1,4 @@
-# string
+# strings
 
 strings for zig
 
