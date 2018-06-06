@@ -24,7 +24,7 @@ test "strings" {
 
     // check if contains substring
     assert(s2.contains("some"));
-    assert(!s2.contains("apple"));
+    assert(!s2.contains("fountain"));
 
     // upper and lowercase
     s2.lower();
