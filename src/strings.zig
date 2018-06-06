@@ -30,6 +30,10 @@ pub const string = struct {
         };
     }
 
+    pub fn deinit(self: *const string) void {
+        self.allocator.free(self.buffer);
+    }
+
     // return the size of the string
     pub fn size(self: *const string) usize {
         return self.buffer.len;
@@ -86,7 +90,7 @@ pub const string = struct {
             seen+=1;
             if (seen == i64(m)) {
                 results.append(j-m+1) catch unreachable;
-            seen = border[m];
+                seen = border[m];
             }
         }
         return results;
@@ -227,7 +231,7 @@ pub const string = struct {
         // find last occurance of non-whitespace char
         var i: usize = self.buffer.len-1;
         while (i >= 0): (i -= 1) {
-            var c = self.buffer[i];
+            const c = self.buffer[i];
             switch (c) {
                 ' ', '\t', '\n', 11, '\r'  => continue,
                 else =>   {
@@ -287,6 +291,36 @@ pub const string = struct {
 
         self.allocator.free(self.buffer);
         self.buffer = new_buff;
+    }
+
+    pub fn split(self: *const string, sep: []const u8) !ArrayList(string) {
+        var indices = try self.kmp(sep);
+        var it = indices.iterator();
+
+        var results = ArrayList(string).init(self.allocator);
+        try results.resize(indices.count()+1);
+
+        var i: usize = 0;
+        var j: usize = 0;
+        while (it.next()) |n|: (j += 1) {
+            var s = try string.init(self.buffer[i..n]);
+            results.items[j] = s;
+            i = n+sep.len;
+        }
+        if (i < self.buffer.len) {
+            var s = try string.init(self.buffer[i..]);
+            results.items[indices.count()] = s;
+        }
+        return results;
+    }
+
+    pub fn count(self: *const string, substr: []const u8) !usize {
+        var subs = try self.kmp(substr);
+        return subs.count();
+    }
+
+    pub fn equals(self: *const string, other: []const u8) bool {
+        return mem.eql(u8, self.buffer, other);
     }
 };
 

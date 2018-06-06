@@ -5,6 +5,15 @@ const mem = @import("std").mem;
 const debug = @import("std").debug;
 const assert = debug.assert;
 
+
+test "strings.equals" {
+    var s = try string.init("this is a string");
+    assert(s.equals("this is a string"));
+
+    var s2 = try string.init("");
+    assert(s2.equals(""));
+}
+
 test "strings.starts_endswith" {
     var s = try string.init("this is some data to work with");
 
@@ -107,5 +116,46 @@ test "strings.strip" {
     var s3 = try string.init("  \tthis is a string  \n\r");
     try s3.strip();
     assert(mem.eql(u8, s3.buffer, "this is a string"));
-
 }
+
+test "strings.count" {
+    // count the number of occurances of a substring
+    var s = try string.init("hello there, this is a string. strings are fun to play with.....string!!!!!");
+    assert((try s.count("string")) == 3);
+}
+
+
+test "strings.split" {
+    // split a string into a slice of strings, with single space as separator
+    var s = try string.init("this is the string that I am going to split");
+    var result = try s.split(" ");
+    var it = result.iterator();
+
+    assert(result.count() == 10);
+
+    assert(result.items[0].equals("this"));
+    assert(result.items[3].equals("string"));
+    assert(result.items[6].equals("am"));
+    assert(result.items[9].equals("split"));
+
+    var s2 = try string.init(moby);
+    var moby_split = try s2.split(" ");
+    assert(moby_split.count() == 198);
+}
+
+var moby = 
+\\Call me Ishmael. Some years ago—never mind how long precisely—having little or 
+\\no money in my purse, and nothing particular to interest me on shore, I thought 
+\\I would sail about a little and see the watery part of the world. It is a way I 
+\\have of driving off the spleen and regulating the circulation. Whenever I find myself 
+\\growing grim about the mouth; whenever it is a damp, drizzly November in my soul; 
+\\whenever I find myself involuntarily pausing before coffin warehouses, and bringing 
+\\up the rear of every funeral I meet; and especially whenever my hypos get such an 
+\\upper hand of me, that it requires a strong moral principle to prevent me from 
+\\deliberately stepping into the street, and methodically knocking people's hats off—then, 
+\\I account it high time to get to sea as soon as I can. This is my substitute for 
+\\pistol and ball. With a philosophical flourish Cato throws himself upon his sword; 
+\\I quietly take to the ship. There is nothing surprising in this. If they but knew it, 
+\\almost all men in their degree, some time or other, cherish very nearly the same feelings 
+\\towards the ocean with me.
+;
