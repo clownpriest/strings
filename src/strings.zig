@@ -293,6 +293,8 @@ pub const string = struct {
         self.buffer = new_buff;
     }
 
+    // split the string by a specified separator, returning
+    // an ArrayList of substrings.
     pub fn split(self: *const string, sep: []const u8) !ArrayList(string) {
         var indices = try self.kmp(sep);
         var it = indices.iterator();
@@ -314,11 +316,13 @@ pub const string = struct {
         return results;
     }
 
+    // count the number of occurances of a substring
     pub fn count(self: *const string, substr: []const u8) !usize {
         var subs = try self.kmp(substr);
         return subs.count();
     }
 
+    // check if another string is equal to this one
     pub fn equals(self: *const string, other: []const u8) bool {
         return mem.eql(u8, self.buffer, other);
     }
