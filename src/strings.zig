@@ -187,6 +187,17 @@ pub const string = struct {
             }
         }
     }
+
+    // convert all characters to their opposite case.
+    pub fn swapcase(self: *const string) void {
+        for (self.buffer) |c, i| {
+            if (ascii_lower_start <= c and c <= ascii_lower_end) {
+                self.buffer[i] = ascii_upper[lower_map(c)];
+            } else if (ascii_upper_start <= c and c <= ascii_upper_end) {
+                self.buffer[i] = ascii_lower[upper_map(c)];
+            }
+        }
+    }
 };
 
 fn upper_map(c: u8) usize {

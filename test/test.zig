@@ -42,6 +42,11 @@ test "strings.upper_lower" {
     assert(mem.eql(u8, s.buffer, "this is some more data, some some hey hey yo. apple dog jump"));
     s.upper();
     assert(mem.eql(u8, s.buffer, "THIS IS SOME MORE DATA, SOME SOME HEY HEY YO. APPLE DOG JUMP"));
+
+    // swap upper to lower and vice versa
+    var s2 = try string.init("this is some more data, SoMe some hey hey yo. APPLE DOG jump");
+    s2.swapcase();
+    assert(mem.eql(u8, s2.buffer, "THIS IS SOME MORE DATA, sOmE SOME HEY HEY YO. apple dog JUMP"));
 }
 
 
