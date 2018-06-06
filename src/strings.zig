@@ -207,6 +207,87 @@ pub const string = struct {
         self.allocator.free(self.buffer);
         self.buffer = new_buff;
     }
+
+    // strip whitespace from both beginning and end of string
+    pub fn strip(self: *string) !void {
+        var start: usize = 0;
+        var end: usize = self.buffer.len;
+
+        // find first occurence of non-whitespace char
+        for (self.buffer) |c, i| {
+            switch (c) {
+                ' ', '\t', '\n', 11, '\r'  => continue,
+                else =>   {
+                    start = i;
+                    break;
+                },
+            }
+        }
+
+        // find last occurance of non-whitespace char
+        var i: usize = self.buffer.len-1;
+        while (i >= 0): (i -= 1) {
+            var c = self.buffer[i];
+            switch (c) {
+                ' ', '\t', '\n', 11, '\r'  => continue,
+                else =>   {
+                    end = i+1;
+                    break;
+                },
+            }
+        }
+
+        var new_buff = try self.allocator.alloc(u8, end - start);
+        mem.copy(u8, new_buff, self.buffer[start..end]);
+
+        self.allocator.free(self.buffer);
+        self.buffer = new_buff;
+    }
+
+    // strip whitespace from the left of the string
+    pub fn lstrip(self: *string) !void {
+        var start: usize = 0;
+        // find first occurence of non-whitespace char
+        for (self.buffer) |c, i| {
+            switch (c) {
+                ' ', '\t', '\n', 11, '\r'  => continue,
+                else =>   {
+                    start = i;
+                    break;
+                },
+            }
+        }
+
+        var new_buff = try self.allocator.alloc(u8, self.buffer.len - start);
+        mem.copy(u8, new_buff, self.buffer[start..self.buffer.len]);
+
+        self.allocator.free(self.buffer);
+        self.buffer = new_buff;
+    }
+
+    // strip whitespace from the right of the string
+    pub fn rstrip(self: *string) !void {
+        var end: usize = self.buffer.len;
+
+        // find last occurance of non-whitespace char
+        var i: usize = self.buffer.len-1;
+        while (i >= 0): (i -= 1) {
+            var c = self.buffer[i];
+            switch (c) {
+                ' ', '\t', '\n', 11, '\r'  => continue,
+                else =>   {
+                    end = i+1;
+                    break;
+                },
+            }
+        }
+
+        var new_buff = try self.allocator.alloc(u8, end);
+        mem.copy(u8, new_buff, self.buffer[0..end]);
+
+        self.allocator.free(self.buffer);
+        self.buffer = new_buff;
+    }
 };
 
 fn upper_map(c: u8) usize {

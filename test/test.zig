@@ -91,3 +91,21 @@ test "strings.concat" {
     try s.concat("friendo");
     assert(mem.eql(u8, s.buffer, "hello there friendo"));
 }
+
+test "strings.strip" {
+    // strip from the left
+    var s = try string.init("  \tthis is a string  \n\r");
+    try s.lstrip();
+    assert(mem.eql(u8, s.buffer, "this is a string  \n\r"));
+
+    // strip from the right
+    var s2 = try string.init("  \tthis is a string  \n\r");
+    try s2.rstrip();
+    assert(mem.eql(u8, s2.buffer, "  \tthis is a string"));
+
+    // strip both
+    var s3 = try string.init("  \tthis is a string  \n\r");
+    try s3.strip();
+    assert(mem.eql(u8, s3.buffer, "this is a string"));
+
+}
