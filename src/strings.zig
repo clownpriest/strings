@@ -7,13 +7,13 @@ const HashMap = @import("std").HashMap;
 
 const Allocator = mem.Allocator;
 
-const english_upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const english_lower = "abcdefghijklmnopqrstuvwxyz";
+const ascii_upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const ascii_lower = "abcdefghijklmnopqrstuvwxyz";
 
-const eng_upper_start: usize = 65;
-const eng_upper_end: usize = 90;
-const eng_lower_start: usize = 97;
-const eng_lower_end: usize = 122;
+const ascii_upper_start: usize = 65;
+const ascii_upper_end: usize = 90;
+const ascii_lower_start: usize = 97;
+const ascii_lower_end: usize = 122;
 
 pub const string = struct {
     buffer: []u8,
@@ -26,7 +26,7 @@ pub const string = struct {
         }
         return string {
             .buffer = buf,
-            .allocator = std.heap.c_allocator    
+            .allocator = std.heap.c_allocator,
         };
     }
 
@@ -123,12 +123,58 @@ pub const string = struct {
         return currrow[other.len];
     }
 
+    // replace all instances of "before" with "after"
+    pub fn replace(self: *string, before: []const u8, after: []const u8) !void {
+        var indices = try self.kmp(before);
+        if (indices.count() == 0) return;
+        var diff = i128(before.len) - i128(after.len);
+        var it = indices.iterator();
+        var new_size: usize = 0;
+        if (diff == 0) { // no need to resize buffer
+            while (it.next()) |n| {
+                mem.copy(u8, self.buffer[n..n+after.len], after);
+            }
+            return;
+        } else if (diff < 0) { // grow buffer
+            diff = diff * -1;
+            new_size = self.buffer.len + (indices.count()*usize(diff));
+        } else { // shrink buffer
+            new_size = self.buffer.len - (indices.count()*usize(diff));
+        }
+        var new_buff = try self.allocator.alloc(u8, new_size);
+        var i: usize = 0;
+            var j: usize = 0;
+            while (it.next()) |n| {
+                while (i < self.buffer.len) {
+                    if (i < n) {
+                        new_buff[j] = self.buffer[i];
+                        i += 1;
+                        j += 1;
+                    } else  {
+                        mem.copy(u8, new_buff[j..j+after.len], after);
+                        i += before.len;
+                        j += after.len;
+                        break;
+                    }
+                }
+            }
+            if (j < new_buff.len) {
+                mem.copy(u8, new_buff[j..], self.buffer[i..]);
+            }
+            self.allocator.free(self.buffer);
+            self.buffer = new_buff;
+    }
+
+    // reverse the string
+    pub fn reverse(self: *const string) void {
+        mem.reverse(u8, self.buffer);
+    }
 
     // convert all characters to lowercase
     pub fn lower(self: *const string) void {
         for (self.buffer) |c, i| {
-            if (eng_upper_start <= c and c <= eng_upper_end) {
-                self.buffer[i] = english_lower[upper_map(c)];
+            if (ascii_upper_start <= c and c <= ascii_upper_end) {
+                self.buffer[i] = ascii_lower[upper_map(c)];
             }
         }
     }
@@ -136,22 +182,22 @@ pub const string = struct {
     // convert all characters to uppercase
     pub fn upper(self: *const string) void {
         for (self.buffer) |c, i| {
-            if (eng_lower_start <= c and c <= eng_lower_end) {
-                self.buffer[i] = english_upper[lower_map(c)];
+            if (ascii_lower_start <= c and c <= ascii_lower_end) {
+                self.buffer[i] = ascii_upper[lower_map(c)];
             }
         }
     }
 };
 
-pub fn upper_map(c: u8) usize {
-    return c - eng_upper_start;
+fn upper_map(c: u8) usize {
+    return c - ascii_upper_start;
 }
 
-pub fn lower_map(c: u8) usize {
-    return c - eng_lower_start;
+fn lower_map(c: u8) usize {
+    return c - ascii_lower_start;
 }
 
-pub fn min(x: usize, y: usize, z: usize) usize {
+fn min(x: usize, y: usize, z: usize) usize {
     var result = x;
     if (y < result) {
         result = y;
