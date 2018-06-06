@@ -198,6 +198,15 @@ pub const string = struct {
             }
         }
     }
+
+    pub fn concat(self: *string, other: []const u8) !void {
+        if (other.len == 0) return;
+        var new_buff = try self.allocator.alloc(u8, self.size() + other.len);
+        mem.copy(u8, new_buff[0..self.size()], self.buffer);
+        mem.copy(u8, new_buff[self.size()..], other);
+        self.allocator.free(self.buffer);
+        self.buffer = new_buff;
+    }
 };
 
 fn upper_map(c: u8) usize {

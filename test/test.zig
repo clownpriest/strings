@@ -85,3 +85,9 @@ test "strings.reverse" {
     s.reverse();
     assert(mem.eql(u8, s.buffer, "gnirts a si siht"));
 }
+
+test "strings.concat" {
+    var s = try string.init("hello there ");
+    try s.concat("friendo");
+    assert(mem.eql(u8, s.buffer, "hello there friendo"));
+}
