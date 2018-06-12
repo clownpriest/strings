@@ -4,6 +4,8 @@ const warn = @import("std").debug.warn;
 const mem = @import("std").mem;
 const debug = @import("std").debug;
 const assert = debug.assert;
+const io = @import("std").io;
+const std = @import("std");
 
 
 test "strings.equals" {
@@ -37,10 +39,13 @@ test "strings.find_substring" {
     var s = try string.init("this is some more data, SoMe some hey hey yo. APPLE DOG jump");
     var results = try s.find_all("some");
 
+    assert(results.len == 2);
+    assert(results[0] == 8);
+    assert(results[1] == 29);
+
     // check if contains substring
     assert(s.contains("some"));
     assert(!s.contains("fountain"));
-
 }
 
 test "strings.upper_lower" {
@@ -128,20 +133,34 @@ test "strings.count" {
 test "strings.split" {
     // split a string into a slice of strings, with single space as separator
     var s = try string.init("this is the string that I am going to split");
-    var result = try s.split(" ");
-    var it = result.iterator();
+    var result = try s.split_to_u8(" ");
 
-    assert(result.count() == 10);
+    assert(result.len == 10);
 
-    assert(result.items[0].equals("this"));
-    assert(result.items[3].equals("string"));
-    assert(result.items[6].equals("am"));
-    assert(result.items[9].equals("split"));
+    assert(mem.eql(u8, result[0], "this"));
+    assert(mem.eql(u8, result[3], "string"));
+    assert(mem.eql(u8, result[6], "am"));
+    assert(mem.eql(u8, result[9], "split"));
+
+    var result2 = try s.split(" ");
+
+    assert(result2[0].equals("this"));
+    assert(result2[3].equals("string"));
+    assert(result2[6].equals("am"));
+    assert(result2[9].equals("split"));
 
     var s2 = try string.init(moby);
     var moby_split = try s2.split(" ");
-    assert(moby_split.count() == 198);
+    assert(moby_split.len == 198);
+
+    var all_moby_dick = try read_file("test/moby_dick.txt");
+    var moby_full = try string.init(all_moby_dick);
+    var moby_full_split = try moby_full.split(" ");
+
+    assert(moby_full_split.len == 192865);
 }
+
+
 
 var moby = 
 \\Call me Ishmael. Some years ago—never mind how long precisely—having little or 
@@ -159,3 +178,8 @@ var moby =
 \\almost all men in their degree, some time or other, cherish very nearly the same feelings 
 \\towards the ocean with me.
 ;
+
+fn read_file(path: []const u8) ![]u8 {
+    var allocator = std.heap.c_allocator;
+    return try io.readFileAlloc(allocator, path);
+}

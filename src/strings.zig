@@ -1,8 +1,9 @@
 const std = @import("std");
 const mem = @import("std").mem;
 const debug = @import("std").debug;
-const ArrayList = @import("std").ArrayList;
-const HashMap = @import("std").HashMap;
+const ArrayList = std.ArrayList;
+const HashMap = std.HashMap;
+const LinkedList = std.LinkedList;
 
 
 const Allocator = mem.Allocator;
@@ -26,7 +27,7 @@ pub const string = struct {
         }
         return string {
             .buffer = buf,
-            .allocator = std.heap.c_allocator,
+            .allocator = std.heap.c_allocator
         };
     }
 
@@ -42,7 +43,7 @@ pub const string = struct {
     // check if the string constains a substring
     pub fn contains(self: *const string, subs: []const u8) bool {
         var result = kmp(self, subs) catch unreachable;
-        return result.count() > 0;
+        return result.len > 0;
     }
 
     // check if the string starts with the prefix
@@ -59,13 +60,20 @@ pub const string = struct {
 
     // find all occurrences of a substring. returns an ArrayList of indices
     // where there is a substring match.
-    pub fn find_all(self: *const string, needle: []const u8) !ArrayList(usize) {
-        return kmp(self, needle);
+    pub fn find_all(self: *const string, needle: []const u8) ![]usize {
+        var indices: []usize = undefined;
+        if (needle.len == 1 and needle[0] == ' ') {
+            indices = try self.single_space_indices();
+        } else {
+           indices = try self.kmp(needle);
+        }
+        return indices;
     }
 
     // Knuth-Morris-Pratt substring search
-    pub fn kmp(self: *const string, needle: []const u8) !ArrayList(usize) {
+    pub fn kmp(self: *const string, needle: []const u8) ![]usize {
         const m = needle.len;
+
         var border = try self.allocator.alloc(i64, m+1);
         defer self.allocator.free(border);
         border[0] = -1;
@@ -79,20 +87,27 @@ pub const string = struct {
             border[i+1]+=1;
         }
 
-        var results = ArrayList(usize).init(self.allocator);
+        // max possible needles you can find
+        const max_found = self.buffer.len / needle.len; 
+        
+        var results = try self.allocator.alloc(usize, max_found);
         var n = self.buffer.len;
         var seen: i64 = 0;
         var j: usize = 0;
+        var found: usize = 0;
+
         while (j < n): (j += 1) {
             while (seen > -1 and needle[usize(seen)] != self.buffer[j])  {
                 seen = border[usize(seen)];
             }
             seen+=1;
             if (seen == i64(m)) {
-                results.append(j-m+1) catch unreachable;
+                found += 1;
+                results[found-1] = j-m+1;
                 seen = border[m];
             }
         }
+        results = try self.allocator.realloc(usize, results, found);
         return results;
     }
 
@@ -130,43 +145,43 @@ pub const string = struct {
     // replace all instances of "before" with "after"
     pub fn replace(self: *string, before: []const u8, after: []const u8) !void {
         var indices = try self.kmp(before);
-        if (indices.count() == 0) return;
+        if (indices.len == 0) return;
         var diff = i128(before.len) - i128(after.len);
-        var it = indices.iterator();
+        // var it = indices.iterator();
         var new_size: usize = 0;
         if (diff == 0) { // no need to resize buffer
-            while (it.next()) |n| {
+            for (indices) |n| { 
                 mem.copy(u8, self.buffer[n..n+after.len], after);
             }
             return;
         } else if (diff < 0) { // grow buffer
             diff = diff * -1;
-            new_size = self.buffer.len + (indices.count()*usize(diff));
+            new_size = self.buffer.len + (indices.len*usize(diff));
         } else { // shrink buffer
-            new_size = self.buffer.len - (indices.count()*usize(diff));
+            new_size = self.buffer.len - (indices.len*usize(diff));
         }
         var new_buff = try self.allocator.alloc(u8, new_size);
         var i: usize = 0;
-            var j: usize = 0;
-            while (it.next()) |n| {
-                while (i < self.buffer.len) {
-                    if (i < n) {
-                        new_buff[j] = self.buffer[i];
-                        i += 1;
-                        j += 1;
-                    } else  {
-                        mem.copy(u8, new_buff[j..j+after.len], after);
-                        i += before.len;
-                        j += after.len;
-                        break;
-                    }
+        var j: usize = 0;
+        for (indices) |n| {
+            while (i < self.buffer.len) {
+                if (i < n) {
+                    new_buff[j] = self.buffer[i];
+                    i += 1;
+                    j += 1;
+                } else  {
+                    mem.copy(u8, new_buff[j..j+after.len], after);
+                    i += before.len;
+                    j += after.len;
+                    break;
                 }
             }
-            if (j < new_buff.len) {
-                mem.copy(u8, new_buff[j..], self.buffer[i..]);
-            }
-            self.allocator.free(self.buffer);
-            self.buffer = new_buff;
+        }
+        if (j < new_buff.len) {
+            mem.copy(u8, new_buff[j..], self.buffer[i..]);
+        }
+        self.allocator.free(self.buffer);
+        self.buffer = new_buff;
     }
 
     // reverse the string
@@ -178,7 +193,7 @@ pub const string = struct {
     pub fn lower(self: *const string) void {
         for (self.buffer) |c, i| {
             if (ascii_upper_start <= c and c <= ascii_upper_end) {
-                self.buffer[i] = ascii_lower[upper_map(c)];
+                self.buffer[i] = ascii_lower[@inlineCall(upper_map, c)];
             }
         }
     }
@@ -187,7 +202,7 @@ pub const string = struct {
     pub fn upper(self: *const string) void {
         for (self.buffer) |c, i| {
             if (ascii_lower_start <= c and c <= ascii_lower_end) {
-                self.buffer[i] = ascii_upper[lower_map(c)];
+                self.buffer[i] = ascii_upper[@inlineCall(lower_map, c)];
             }
         }
     }
@@ -196,9 +211,9 @@ pub const string = struct {
     pub fn swapcase(self: *const string) void {
         for (self.buffer) |c, i| {
             if (ascii_lower_start <= c and c <= ascii_lower_end) {
-                self.buffer[i] = ascii_upper[lower_map(c)];
+                self.buffer[i] = ascii_upper[@inlineCall(lower_map, c)];
             } else if (ascii_upper_start <= c and c <= ascii_upper_end) {
-                self.buffer[i] = ascii_lower[upper_map(c)];
+                self.buffer[i] = ascii_lower[@inlineCall(upper_map, c)];
             }
         }
     }
@@ -294,37 +309,79 @@ pub const string = struct {
     }
 
     // split the string by a specified separator, returning
-    // an ArrayList of substrings.
-    pub fn split(self: *const string, sep: []const u8) !ArrayList(string) {
-        var indices = try self.kmp(sep);
-        var it = indices.iterator();
+    // an ArrayList of []u8. 
+    pub fn split_to_u8(self: *const string, sep: []const u8) ![][]const u8 {
+        var indices = try @inlineCall(self.find_all, sep);
 
-        var results = ArrayList(string).init(self.allocator);
-        try results.resize(indices.count()+1);
-
+        var results = try self.allocator.alloc([]const u8, indices.len+1);
         var i: usize = 0;
-        var j: usize = 0;
-        while (it.next()) |n|: (j += 1) {
-            var s = try string.init(self.buffer[i..n]);
-            results.items[j] = s;
+        for (indices) |n, j|  {
+            results[j] = self.buffer[i..n];
             i = n+sep.len;
         }
         if (i < self.buffer.len) {
-            var s = try string.init(self.buffer[i..]);
-            results.items[indices.count()] = s;
+            results[indices.len] = self.buffer[i..];
+        }
+        return results;
+    }
+
+    // split the string by a specified separator, returning
+    // an slice of string pointers.
+    pub fn split(self: *const string, sep: []const u8) ![]string {
+        var indices = try self.find_all(sep);
+
+        var results = try self.allocator.alloc(string, indices.len+1);
+        var i: usize = 0;
+        for (indices) |n, j| {
+            results[j] = try string.init(self.buffer[i..n]);
+            i = n+sep.len;
+        }
+
+        if (i < self.buffer.len) {
+            results[indices.len] = try string.init(self.buffer[i..]);
         }
         return results;
     }
 
     // count the number of occurances of a substring
     pub fn count(self: *const string, substr: []const u8) !usize {
-        var subs = try self.kmp(substr);
-        return subs.count();
+        var subs = try self.find_all(substr);
+        return subs.len;
     }
 
     // check if another string is equal to this one
     pub fn equals(self: *const string, other: []const u8) bool {
         return mem.eql(u8, self.buffer, other);
+    }
+
+    pub fn single_space_indices(self: *const string) ![]usize {
+        var results = try self.allocator.alloc(usize, self.buffer.len);
+        var i: usize = 0;
+        for (self.buffer) |c, j| {
+            if (c == ' ') {
+                results[i] = j;
+                i += 1;
+            }
+        }
+        results = try self.allocator.realloc(usize, results, i);
+        return results[0..];
+    }
+
+    pub fn all_space_indices(self: *const string) ![]usize {
+        var results = try self.allocator.alloc(usize, self.buffer.len);
+        var i: usize = 0;
+        for (self.buffer) |c, j| {
+            switch (c) {
+                ' ', '\t', '\n', 11, '\r'  =>
+                {
+                    results[i] = j;
+                    i += 1;
+                }, 
+                else => continue,
+            }
+        }
+        results = try self.allocator.realloc(usize, results, i);
+        return results;
     }
 };
 
