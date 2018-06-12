@@ -1,11 +1,7 @@
 const std = @import("std");
-const mem = @import("std").mem;
-const debug = @import("std").debug;
-const ArrayList = std.ArrayList;
-const HashMap = std.HashMap;
-const LinkedList = std.LinkedList;
-
-
+const mem = std.mem;
+const debug = std.debug;
+const assert = debug.assert;
 const Allocator = mem.Allocator;
 
 const ascii_upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -118,6 +114,17 @@ pub const string = struct {
         var currrow = try self.allocator.alloc(usize, other.len+1);
         defer self.allocator.free(prevrow);
         defer self.allocator.free(currrow);
+
+        return self.buffered_levenshtein(other, prevrow, currrow);
+    }
+
+    // compute the levenshtein distance to annoter string
+    // this function expects pre-allocated buffers as input
+    // the calling code is responsible for freeing this memory
+    pub fn buffered_levenshtein(self: *const string, other: []const u8, 
+                                prevrow: []usize, currrow: []usize) usize {
+        assert(prevrow.len == other.len+1);
+        assert(currrow.len == other.len+1);
 
         var i: usize = 0;
         while (i <= other.len): (i += 1) {
