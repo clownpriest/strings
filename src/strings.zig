@@ -54,8 +54,8 @@ pub const string = struct {
         return mem.endsWith(u8, self.buffer, sfx);
     }
 
-    // find all occurrences of a substring. returns an ArrayList of indices
-    // where there is a substring match.
+    // find all occurrences of a substring. returns a slice of indices
+    // which indicate the beginning of a substring match.
     pub fn find_all(self: *const string, needle: []const u8) ![]usize {
         var indices: []usize = undefined;
         if (needle.len == 1 and needle[0] == ' ') {
@@ -118,13 +118,13 @@ pub const string = struct {
         return self.buffered_levenshtein(other, prevrow, currrow);
     }
 
-    // compute the levenshtein distance to annoter string
+    // compute the levenshtein distance to another string
     // this function expects pre-allocated buffers as input
     // the calling code is responsible for freeing this memory
     pub fn buffered_levenshtein(self: *const string, other: []const u8, 
                                 prevrow: []usize, currrow: []usize) usize {
-        assert(prevrow.len == other.len+1);
-        assert(currrow.len == other.len+1);
+        assert(prevrow.len >= other.len+1);
+        assert(currrow.len >= other.len+1);
 
         var i: usize = 0;
         while (i <= other.len): (i += 1) {
@@ -227,11 +227,10 @@ pub const string = struct {
 
     pub fn concat(self: *string, other: []const u8) !void {
         if (other.len == 0) return;
-        var new_buff = try self.allocator.alloc(u8, self.size() + other.len);
-        mem.copy(u8, new_buff[0..self.size()], self.buffer);
-        mem.copy(u8, new_buff[self.size()..], other);
-        self.allocator.free(self.buffer);
-        self.buffer = new_buff;
+        const orig_len = self.buffer.len;
+        self.buffer = try self.allocator.realloc(u8, self.buffer, 
+                                                 self.size() + other.len);
+        mem.copy(u8, self.buffer[orig_len..], other);
     }
 
     // strip whitespace from both beginning and end of string
