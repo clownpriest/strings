@@ -1,4 +1,4 @@
-const strings = @import("../src/strings.zig");
+const strings = @import("strings");
 const string = strings.string;
 const warn = @import("std").debug.warn;
 const mem = @import("std").mem;
@@ -67,16 +67,16 @@ test "strings.upper_lower" {
 test "strings.edit_distance" {
     // levenshtein edit distance
     var s3 = try string.init("apple");
-    assert((try s3.levenshtein("snapple")) == usize(2));
+    assert((try s3.levenshtein("snapple")) == @intCast(usize, 2));
 
     var s4 = try string.init("book");
-    assert((try s4.levenshtein("burn")) == usize(3));
+    assert((try s4.levenshtein("burn")) == @intCast(usize, 3));
 
     var s5 = try string.init("pencil");
-    assert((try s5.levenshtein("telephone")) == usize(8));
+    assert((try s5.levenshtein("telephone")) == @intCast(usize, 8));
 
     var s6 = try string.init("flowers");
-    assert((try s6.levenshtein("wolf")) == usize(6));
+    assert((try s6.levenshtein("wolf")) == @intCast(usize, 6));
 }
 
 test "strings.replace" {
@@ -160,8 +160,6 @@ test "strings.split" {
     assert(moby_full_split.len == 192865);
 }
 
-
-
 var moby = 
 \\Call me Ishmael. Some years ago—never mind how long precisely—having little or 
 \\no money in my purse, and nothing particular to interest me on shore, I thought 
@@ -181,5 +179,5 @@ var moby =
 
 fn read_file(path: []const u8) ![]u8 {
     var allocator = std.heap.c_allocator;
-    return try io.readFileAlloc(allocator, path);
+    return try std.fs.Dir.readFileAlloc(std.fs.cwd(), allocator, path, 10 * 1000 * 1000);
 }
