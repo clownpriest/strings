@@ -77,8 +77,8 @@ pub const string = struct {
         var i: usize = 0;
         while (i < m): (i += 1) {
             border[i+1] = border[i];
-            while (border[i+1] > -1 and needle[usize(border[i+1])] != needle[i]) {
-                border[i+1] = border[usize(border[i+1])];
+            while (border[i+1] > -1 and needle[@intCast(usize, border[i+1])] != needle[i]) {
+                border[i+1] = border[@intCast(usize, border[i+1])];
             }
             border[i+1]+=1;
         }
@@ -87,26 +87,25 @@ pub const string = struct {
         const max_found = self.buffer.len / needle.len; 
         
         var results = try self.allocator.alloc(usize, max_found);
+        defer self.allocator.free(results);
         var n = self.buffer.len;
         var seen: i64 = 0;
         var j: usize = 0;
         var found: usize = 0;
 
         while (j < n): (j += 1) {
-            while (seen > -1 and needle[usize(seen)] != self.buffer[j])  {
-                seen = border[usize(seen)];
+            while (seen > -1 and needle[@intCast(usize, seen)] != self.buffer[j]) {
+                seen = border[@intCast(usize, seen)];
             }
             seen+=1;
-            if (seen == i64(m)) {
+            if (seen == @intCast(i64, m)) {
                 found += 1;
                 results[found-1] = j-m+1;
                 seen = border[m];
             }
         }
-        results = try self.allocator.realloc(usize, results, found);
-        return results;
+        return mem_dupn(self.allocator, usize, results, found);
     }
-
 
     // compute the levenshtein edit distance to another string
     pub fn levenshtein(self: *const string, other: []const u8) !usize {
@@ -139,7 +138,7 @@ pub const string = struct {
                 if (self.buffer[i-1] == other[j-1]) {
                     currrow[j] = prevrow[j-1];
                 } else {
-                    currrow[j] = @inlineCall(min, prevrow[j]+1,
+                    currrow[j] = min(prevrow[j] + 1,
                     currrow[j-1]+1,
                     prevrow[j-1]+1);
                 }
@@ -153,7 +152,7 @@ pub const string = struct {
     pub fn replace(self: *string, before: []const u8, after: []const u8) !void {
         var indices = try self.kmp(before);
         if (indices.len == 0) return;
-        var diff = i128(before.len) - i128(after.len);
+        var diff = @intCast(i128, before.len) - @intCast(i128, after.len);
         // var it = indices.iterator();
         var new_size: usize = 0;
         if (diff == 0) { // no need to resize buffer
@@ -163,9 +162,9 @@ pub const string = struct {
             return;
         } else if (diff < 0) { // grow buffer
             diff = diff * -1;
-            new_size = self.buffer.len + (indices.len*usize(diff));
+            new_size = self.buffer.len + (indices.len * @intCast(usize, diff));
         } else { // shrink buffer
-            new_size = self.buffer.len - (indices.len*usize(diff));
+            new_size = self.buffer.len - (indices.len * @intCast(usize, diff));
         }
         var new_buff = try self.allocator.alloc(u8, new_size);
         var i: usize = 0;
@@ -176,7 +175,7 @@ pub const string = struct {
                     new_buff[j] = self.buffer[i];
                     i += 1;
                     j += 1;
-                } else  {
+                } else {
                     mem.copy(u8, new_buff[j..j+after.len], after);
                     i += before.len;
                     j += after.len;
@@ -200,7 +199,7 @@ pub const string = struct {
     pub fn lower(self: *const string) void {
         for (self.buffer) |c, i| {
             if (ascii_upper_start <= c and c <= ascii_upper_end) {
-                self.buffer[i] = ascii_lower[@inlineCall(upper_map, c)];
+                self.buffer[i] = ascii_lower[upper_map(c)];
             }
         }
     }
@@ -209,7 +208,7 @@ pub const string = struct {
     pub fn upper(self: *const string) void {
         for (self.buffer) |c, i| {
             if (ascii_lower_start <= c and c <= ascii_lower_end) {
-                self.buffer[i] = ascii_upper[@inlineCall(lower_map, c)];
+                self.buffer[i] = ascii_upper[lower_map(c)];
             }
         }
     }
@@ -218,9 +217,9 @@ pub const string = struct {
     pub fn swapcase(self: *const string) void {
         for (self.buffer) |c, i| {
             if (ascii_lower_start <= c and c <= ascii_lower_end) {
-                self.buffer[i] = ascii_upper[@inlineCall(lower_map, c)];
+                self.buffer[i] = ascii_upper[lower_map(c)];
             } else if (ascii_upper_start <= c and c <= ascii_upper_end) {
-                self.buffer[i] = ascii_lower[@inlineCall(upper_map, c)];
+                self.buffer[i] = ascii_lower[upper_map(c)];
             }
         }
     }
@@ -228,8 +227,8 @@ pub const string = struct {
     pub fn concat(self: *string, other: []const u8) !void {
         if (other.len == 0) return;
         const orig_len = self.buffer.len;
-        self.buffer = try self.allocator.realloc(u8, self.buffer, 
-                                                 self.size() + other.len);
+        self.buffer = try self.allocator.realloc(self.buffer, @sizeOf(u8) *
+            (self.size() + other.len));
         mem.copy(u8, self.buffer[orig_len..], other);
     }
 
@@ -317,7 +316,7 @@ pub const string = struct {
     // split the string by a specified separator, returning
     // an ArrayList of []u8. 
     pub fn split_to_u8(self: *const string, sep: []const u8) ![][]const u8 {
-        var indices = try @inlineCall(self.find_all, sep);
+        var indices = try self.find_all(sep);
 
         var results = try self.allocator.alloc([]const u8, indices.len+1);
         var i: usize = 0;
@@ -362,6 +361,7 @@ pub const string = struct {
 
     pub fn single_space_indices(self: *const string) ![]usize {
         var results = try self.allocator.alloc(usize, self.buffer.len);
+        defer self.allocator.free(results);
         var i: usize = 0;
         for (self.buffer) |c, j| {
             if (c == ' ') {
@@ -369,12 +369,12 @@ pub const string = struct {
                 i += 1;
             }
         }
-        results = try self.allocator.realloc(usize, results, i);
-        return results[0..];
+        return mem_dupn(self.allocator, usize, results, i);
     }
 
     pub fn all_space_indices(self: *const string) ![]usize {
         var results = try self.allocator.alloc(usize, self.buffer.len);
+        defer self.allocator.free(results);
         var i: usize = 0;
         for (self.buffer) |c, j| {
             switch (c) {
@@ -386,20 +386,19 @@ pub const string = struct {
                 else => continue,
             }
         }
-        results = try self.allocator.realloc(usize, results, i);
-        return results;
+        return mem_dupn(self.allocator, usize, results, i);
     }
 };
 
-fn upper_map(c: u8) usize {
+inline fn upper_map(c: u8) usize {
     return c - ascii_upper_start;
 }
 
-fn lower_map(c: u8) usize {
+inline fn lower_map(c: u8) usize {
     return c - ascii_lower_start;
 }
 
-fn min(x: usize, y: usize, z: usize) usize {
+inline fn min(x: usize, y: usize, z: usize) usize {
     var result = x;
     if (y < result) {
         result = y;
@@ -407,4 +406,26 @@ fn min(x: usize, y: usize, z: usize) usize {
         result = z;
     }
     return result;
+}
+
+pub inline fn mem_copyn(comptime T: type, dest: []T, source: []const T, n: usize) error{OutOfBounds}![]T {
+    var idx: usize = 0;
+    var limit = if (source.len < n) source.len else n;
+    if (limit > dest.len) {
+        return error.OutOfBounds;
+    }
+    while (idx < limit) : (idx += 1) {
+        dest[idx] = source[idx];
+    }
+    return dest; // not necessary but often convenient
+}
+
+pub inline fn mem_dupn(allocator: *Allocator, comptime T: type, source: []const T, n: usize) error{OutOfBounds,OutOfMemory}![]T {
+    var limit = if (source.len < n) source.len else n;
+    var dest = try allocator.alloc(T, limit);
+    return try mem_copyn(T, dest, source, limit);
+}
+
+pub inline fn mem_dup(allocator: *Allocator, comptime T: type, source: []const T) error{OutOfBounds,OutOfMemory}![]T {
+    return try mem_dupn(allocator, T, source, source.len);
 }

@@ -1,5 +1,5 @@
-const string = @import("../src/strings.zig").string;
-const time = std.os.time;
+const string = @import("strings").string;
+const time = @import("std").time;
 const Timer = time.Timer;
 const io = @import("std").io;
 const std = @import("std");
@@ -7,7 +7,7 @@ const warn = @import("std").debug.warn;
 
 fn read_file(path: []const u8) ![]u8 {
     var allocator = std.heap.c_allocator;
-    return try io.readFileAlloc(allocator, path);
+    return try std.fs.Dir.readFileAlloc(std.fs.cwd(), allocator, path, 2 * 1000 * 1000);
 }
 
 pub fn main() !void {
@@ -28,8 +28,7 @@ pub fn main() !void {
     }
     const end = timer.read();
 
-
-    warn("\nlen: {}\n", results[0]);
-    const elapsed_s = f64(end - start) / time.ns_per_s;
-    warn("\nelapsed seconds: {.3}\n\n", elapsed_s);
+    warn("\nlen: {}\n", .{results[0]});
+    const elapsed_s = @intToFloat(f64, end - start) / time.ns_per_s;
+    warn("\nelapsed seconds: {:.3}\n\n", .{elapsed_s});
 }
