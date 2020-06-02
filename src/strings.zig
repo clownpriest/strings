@@ -87,6 +87,7 @@ pub const string = struct {
         const max_found = self.buffer.len / needle.len; 
         
         var results = try self.allocator.alloc(usize, max_found);
+        defer self.allocator.free(results);
         var n = self.buffer.len;
         var seen: i64 = 0;
         var j: usize = 0;
@@ -103,8 +104,7 @@ pub const string = struct {
                 seen = border[m];
             }
         }
-        results = try self.allocator.realloc(results, found * @sizeOf(usize));
-        return results;
+        return mem_dupn(self.allocator, usize, results, found);
     }
 
     // compute the levenshtein edit distance to another string
@@ -361,6 +361,7 @@ pub const string = struct {
 
     pub fn single_space_indices(self: *const string) ![]usize {
         var results = try self.allocator.alloc(usize, self.buffer.len);
+        defer self.allocator.free(results);
         var i: usize = 0;
         for (self.buffer) |c, j| {
             if (c == ' ') {
@@ -368,12 +369,12 @@ pub const string = struct {
                 i += 1;
             }
         }
-        results = try self.allocator.realloc(results, i * @sizeOf(usize));
-        return results[0..];
+        return mem_dupn(self.allocator, usize, results, i);
     }
 
     pub fn all_space_indices(self: *const string) ![]usize {
         var results = try self.allocator.alloc(usize, self.buffer.len);
+        defer self.allocator.free(results);
         var i: usize = 0;
         for (self.buffer) |c, j| {
             switch (c) {
@@ -385,8 +386,7 @@ pub const string = struct {
                 else => continue,
             }
         }
-        results = try self.allocator.realloc(results, i * @sizeOf(usize));
-        return results;
+        return mem_dupn(self.allocator, usize, results, i);
     }
 };
 
@@ -406,4 +406,26 @@ inline fn min(x: usize, y: usize, z: usize) usize {
         result = z;
     }
     return result;
+}
+
+pub inline fn mem_copyn(comptime T: type, dest: []T, source: []const T, n: usize) error{OutOfBounds}![]T {
+    var idx: usize = 0;
+    var limit = if (source.len < n) source.len else n;
+    if (limit > dest.len) {
+        return error.OutOfBounds;
+    }
+    while (idx < limit) : (idx += 1) {
+        dest[idx] = source[idx];
+    }
+    return dest; // not necessary but often convenient
+}
+
+pub inline fn mem_dupn(allocator: *Allocator, comptime T: type, source: []const T, n: usize) error{OutOfBounds,OutOfMemory}![]T {
+    var limit = if (source.len < n) source.len else n;
+    var dest = try allocator.alloc(T, limit);
+    return try mem_copyn(T, dest, source, limit);
+}
+
+pub inline fn mem_dup(allocator: *Allocator, comptime T: type, source: []const T) error{OutOfBounds,OutOfMemory}![]T {
+    return try mem_dupn(allocator, T, source, source.len);
 }
